@@ -20,7 +20,6 @@ type Task = {
   revisedPrompt?: string | null
   error?: string
   selected?: boolean
-  retries?: number
 }
 
 type Props = {
@@ -56,8 +55,18 @@ export default function Generator({ presets, defaultPresetId, defaultQuality, qu
     return { w: activePreset.width, h: activePreset.height, preset: activePreset }
   }, [useCustom, customW, customH, activePreset])
 
-  // Concurrency-limited runner. Accepts a list of tasks and runs them through a pool.
-  const poolRef = useRef<{ running: number; canceled: boolean }>({ running: 0, canceled: false })
+  // Concurrency-limited runner. A single shared pool services both
+  // `onGenerate` (initial batch) and `retryTask` (per-task retry button).
+  // Without this shared pool, retries bypassed the queue entirely and N
+  // rapid retry clicks fanned out to N concurrent requests, ignoring the
+  // slider and any autoDowngrade in effect.
+  const poolRef = useRef<{
+    queue: Task[]
+    running: number
+    canceled: boolean
+    started: boolean
+    effectiveConc: { current: number }
+  }>({ queue: [], running: 0, canceled: false, started: false, effectiveConc: { current: 8 } })
   const [running, setRunning] = useState(false)
 
   const runOne = useCallback(async (t: Task, effectiveConc: { current: number }): Promise<void> => {
@@ -123,7 +132,43 @@ export default function Generator({ presets, defaultPresetId, defaultQuality, qu
     }
   }, [appendHint, autoDowngrade, useCustom])
 
-  const onGenerate = useCallback(async () => {
+  const submitToPool = useCallback((newTasks: Task[]) => {
+    const pool = poolRef.current
+    pool.queue.push(...newTasks)
+    // Sync effective concurrency with the slider on every submit. Also
+    // re-arms after autoDowngrade stuck us at 4 in a previous batch.
+    pool.effectiveConc.current = concurrency
+
+    // Existing workers will pick up the newly pushed tasks from the queue.
+    if (pool.started) return
+
+    pool.started = true
+    pool.canceled = false
+    setRunning(true)
+
+    const worker = async () => {
+      while (!pool.canceled) {
+        const next = pool.queue.shift()
+        if (!next) break
+        // Respect dynamic downgrade: pause if we exceed current effective concurrency
+        while (pool.running >= pool.effectiveConc.current) {
+          await new Promise((r) => setTimeout(r, 100))
+        }
+        pool.running += 1
+        try { await runOne(next, pool.effectiveConc) } finally { pool.running -= 1 }
+      }
+    }
+
+    const N = Math.min(concurrency, pool.queue.length)
+    const workers: Promise<void>[] = []
+    for (let i = 0; i < N; i++) workers.push(worker())
+    Promise.all(workers).then(() => {
+      pool.started = false
+      setRunning(false)
+    })
+  }, [concurrency, runOne])
+
+  const onGenerate = useCallback(() => {
     if (!prompt.trim()) return
     const w = currentSize.w
     const h = currentSize.h
@@ -150,30 +195,8 @@ export default function Generator({ presets, defaultPresetId, defaultQuality, qu
       }
     })
     setTasks((prev) => [...newTasks, ...prev])
-    setRunning(true)
-    poolRef.current = { running: 0, canceled: false }
-
-    const queue = [...newTasks]
-    const effectiveConc = { current: concurrency }
-    const workers: Promise<void>[] = []
-
-    const worker = async () => {
-      while (queue.length > 0 && !poolRef.current.canceled) {
-        const next = queue.shift()
-        if (!next) break
-        // Respect dynamic downgrade: pause if we exceed current effective concurrency
-        while (poolRef.current.running >= effectiveConc.current) {
-          await new Promise((r) => setTimeout(r, 100))
-        }
-        poolRef.current.running += 1
-        try { await runOne(next, effectiveConc) } finally { poolRef.current.running -= 1 }
-      }
-    }
-
-    for (let i = 0; i < Math.min(concurrency, newTasks.length); i++) workers.push(worker())
-    await Promise.all(workers)
-    setRunning(false)
-  }, [prompt, currentSize, count, quality, appendHint, concurrency, runOne])
+    submitToPool(newTasks)
+  }, [prompt, currentSize, count, quality, appendHint, submitToPool])
 
   const toggleSelect = useCallback((id: string) => {
     setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, selected: !t.selected } : t)))
@@ -223,10 +246,12 @@ export default function Generator({ presets, defaultPresetId, defaultQuality, qu
   const retryTask = useCallback((id: string) => {
     const t = tasks.find((x) => x.id === id)
     if (!t) return
-    setTasks((prev) => prev.map((x) => (x.id === id ? { ...x, status: 'pending', error: undefined, image: undefined } : x)))
-    const effectiveConc = { current: concurrency }
-    runOne(t, effectiveConc)
-  }, [tasks, runOne, concurrency])
+    const reset: Task = { ...t, status: 'pending', error: undefined, image: undefined, startedAt: Date.now(), finishedAt: undefined }
+    setTasks((prev) => prev.map((x) => (x.id === id ? reset : x)))
+    // Route the retry through the shared pool so it respects the concurrency
+    // slider and any autoDowngrade in effect (fixes fan-out bug).
+    submitToPool([reset])
+  }, [tasks, submitToPool])
 
   const selectedCount = tasks.filter((t) => t.selected).length
   const doneCount = tasks.filter((t) => t.status === 'done').length
