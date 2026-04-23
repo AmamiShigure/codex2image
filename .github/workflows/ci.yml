@@ -15,9 +15,6 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-      # Using `npm install` rather than `npm ci` because the lockfile is not
-      # checked in yet (kept local to reduce repo churn). Switch to `npm ci`
-      # once a lockfile is committed.
-      - run: npm install
+      - run: npm ci
       - run: npm run lint
       - run: npm run build
