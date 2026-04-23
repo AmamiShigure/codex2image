@@ -12,7 +12,8 @@ export async function POST(req: NextRequest) {
 
   let body: unknown = null
   try { body = await req.json() } catch {}
-  const input = typeof (body as any)?.password === 'string' ? (body as any).password as string : ''
+  const parsed = (body ?? {}) as { password?: unknown }
+  const input = typeof parsed.password === 'string' ? parsed.password : ''
 
   if (input !== pass) {
     return NextResponse.json({ error: '密码错误' }, { status: 401 })

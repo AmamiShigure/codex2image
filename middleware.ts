@@ -6,17 +6,16 @@ import { buildSessionToken, constantTimeEqual } from '@/lib/session'
 const COOKIE_NAME = 'codex2image_auth'
 
 // Paths that must stay open so the login flow works.
-const PUBLIC_PREFIXES = ['/login', '/api/login', '/api/health']
+const PUBLIC_PREFIXES = ['/login', '/api/login']
 
 export async function middleware(req: NextRequest) {
   const pass = process.env.APP_PASSWORD
   const { pathname, search } = req.nextUrl
 
-  // Fail-closed: if APP_PASSWORD is not configured, refuse every request except
-  // the health endpoint. Prevents accidentally exposing the generate API when
-  // the env var is missing (e.g. forgotten in a new deploy).
+  // Fail-closed: if APP_PASSWORD is not configured, refuse every request.
+  // Prevents accidentally exposing the generate API when the env var is
+  // missing (e.g. forgotten in a new deploy).
   if (!pass) {
-    if (pathname === '/api/health') return NextResponse.next()
     return new NextResponse(
       JSON.stringify({ error: 'APP_PASSWORD is not configured on the server' }),
       { status: 503, headers: { 'Content-Type': 'application/json' } },

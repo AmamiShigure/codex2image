@@ -1,7 +1,7 @@
 // Aspect-ratio & resolution presets for gpt-image-2 via CPA.
 // CPA 实测结论（low quality）：
 //   ✅ 单边 ≤ 3072 都能成功： 2048² / 2048×3072 / 2880² / 3072×2048 / 2560×1440
-//   ❌ 单边 > 3072 一路 502 “stream disconnected before completion”：
+//   ❌ 单边 > 3072 一路 502 "stream disconnected before completion"：
 //       3456×2304 / 2304×3456 / 3840×2160 / 2160×3840 均挂
 // 真实卡点：单边 ≤ 3072，而不是总像素。
 // OpenAI 约束：宽高 16 倍数，总像素 655,360 ~ 8,294,400，宽高比 ≤ 3:1。
@@ -52,17 +52,8 @@ export type Quality = (typeof QUALITY_OPTIONS)[number]
 export const DEFAULT_PRESET_ID = 'po-23-2048'
 export const DEFAULT_QUALITY: Quality = 'medium'
 
-export const TIER_LABELS: Record<SizePreset['tier'], string> = {
-  preview:  '预览级 · 1024 (~45s)',
-  standard: '标准级 · 1.5-2 MP',
-  '2k':     '2K 级 · 4-7 MP (推荐)',
-  max:      '极限 · 8 MP 方图',
-}
-
 // CPA 代理的稳定上限，用于自定义尺寸校验
 export const CPA_MAX_SINGLE_EDGE = 3072
-export const MIN_TOTAL_PIXELS = 655360
-export const MAX_TOTAL_PIXELS = 8294400
 
 // 为了提高模型对尺寸的命中率，在 prompt 末尾追加显式尺寸提示。
 export function appendSizeHint(prompt: string, p: SizePreset): string {
