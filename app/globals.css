@@ -1,0 +1,257 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html, body {
+  height: 100%;
+  background: #0b0d12;
+  color: #e6e9ef;
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+}
+
+/* Waterfall/masonry via CSS columns */
+.masonry {
+  column-gap: 12px;
+}
+@media (min-width: 640px) { .masonry { column-count: 2; } }
+@media (min-width: 1024px) { .masonry { column-count: 3; } }
+@media (min-width: 1536px) { .masonry { column-count: 4; } }
+.masonry > * {
+  break-inside: avoid;
+  margin-bottom: 12px;
+}
+
+/* Scrollbar */
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-thumb { background: #2a313d; border-radius: 6px; }
+*::-webkit-scrollbar-thumb:hover { background: #3a4352; }
+
+/* Inputs */
+.input, .select, .textarea {
+  background: #1b2029;
+  border: 1px solid #262c36;
+  border-radius: 8px;
+  color: #e6e9ef;
+  padding: 8px 10px;
+  font-size: 14px;
+  width: 100%;
+  outline: none;
+  transition: border-color .15s;
+}
+.input:focus, .select:focus, .textarea:focus {
+  border-color: #6ea8ff;
+}
+.textarea { resize: vertical; min-height: 120px; font-family: inherit; }
+
+.btn {
+  background: #6ea8ff;
+  color: #0b0d12;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: opacity .15s, transform .05s;
+}
+.btn:hover { opacity: 0.9; }
+.btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-ghost {
+  background: transparent;
+  color: #e6e9ef;
+  border: 1px solid #262c36;
+}
+.btn-ghost:hover { background: #1b2029; }
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #1b2029;
+  border: 1px solid #262c36;
+  font-size: 12px;
+  color: #8a93a6;
+}
+
+.card {
+  background: #141820;
+  border: 1px solid #262c36;
+  border-radius: 10px;
+  overflow: hidden;
+  position: relative;
+}
+.card img { display: block; width: 100%; height: auto; }
+.card .meta {
+  padding: 8px 10px;
+  font-size: 11px;
+  color: #8a93a6;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+}
+.card .select-box {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: rgba(11,13,18,0.7);
+  border: 1px solid #6ea8ff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6ea8ff;
+  font-size: 14px;
+}
+.card.selected { outline: 2px solid #6ea8ff; outline-offset: -2px; }
+.card .actions {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 6px;
+}
+.card .actions button {
+  background: rgba(11,13,18,0.7);
+  color: #e6e9ef;
+  border: 1px solid #262c36;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 11px;
+  cursor: pointer;
+}
+.card .actions button:hover { border-color: #6ea8ff; }
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+}
+.status-pill.pending { background: rgba(110,168,255,0.15); color: #6ea8ff; }
+.status-pill.error { background: rgba(255,110,110,0.15); color: #ff8a8a; }
+.status-pill.done { background: rgba(110,255,168,0.15); color: #6effa8; }
+
+.skeleton {
+  width: 100%;
+  aspect-ratio: var(--ar, 1);
+  background: linear-gradient(90deg, #1b2029 0%, #262c36 50%, #1b2029 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+}
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Lightbox overlay */
+.lightbox {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 24px;
+  cursor: zoom-out;
+  backdrop-filter: blur(4px);
+}
+.lightbox img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+  cursor: default;
+}
+.lightbox .lightbox-close {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  background: rgba(11,13,18,0.7);
+  color: #e6e9ef;
+  border: 1px solid #262c36;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.lightbox .lightbox-close:hover { border-color: #6ea8ff; }
+.lightbox .lightbox-meta {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #cdd3dd;
+  font-size: 12px;
+  background: rgba(11,13,18,0.7);
+  border: 1px solid #262c36;
+  border-radius: 999px;
+  padding: 6px 14px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.lightbox .lightbox-meta button {
+  background: transparent;
+  color: #6ea8ff;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0;
+}
+.card img { cursor: zoom-in; }
+
+/* Login page */
+.login-wrap {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0b0d12;
+  padding: 24px;
+}
+.login-card {
+  width: 100%;
+  max-width: 360px;
+  background: #12151c;
+  border: 1px solid #262c36;
+  border-radius: 12px;
+  padding: 28px 24px;
+  color: #e6e9ef;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.login-card h1 {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0;
+}
+.login-card .login-sub {
+  font-size: 12px;
+  color: #9aa3af;
+  margin: 0 0 8px 0;
+}
+.login-card .login-err {
+  color: #ff8a8a;
+  font-size: 12px;
+  margin-top: -4px;
+}
+.login-card .btn {
+  margin-top: 4px;
+}
