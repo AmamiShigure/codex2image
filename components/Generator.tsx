@@ -1,7 +1,7 @@
 'use client'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import JSZip from 'jszip'
-import { appendSizeHint, type Quality, type SizePreset } from '@/lib/presets'
+import { appendSizeHint, CPA_MAX_SINGLE_EDGE, type Quality, type SizePreset } from '@/lib/presets'
 
 type TaskStatus = 'pending' | 'running' | 'done' | 'error'
 
@@ -84,6 +84,12 @@ export default function Generator({ presets, defaultPresetId, defaultQuality, qu
         if (res.status === 429 || res.status === 503 || res.status === 502) {
           if (autoDowngrade && effectiveConc.current > 4) {
             effectiveConc.current = effectiveConc.current === 8 ? 6 : 4
+          }
+          if (attempt >= maxAttempts) {
+            setTasks((prev) =>
+              prev.map((x) => (x.id === t.id ? { ...x, status: 'error', error: `HTTP ${res.status} after ${maxAttempts} retries`, finishedAt: Date.now() } : x)),
+            )
+            return
           }
           const wait = 1500 * attempt
           await new Promise((r) => setTimeout(r, wait))
@@ -279,8 +285,8 @@ export default function Generator({ presets, defaultPresetId, defaultQuality, qu
           </label>
           {useCustom && (
             <div className="grid grid-cols-2 gap-2 mt-2">
-              <input type="number" step={16} min={256} max={3840} className="input" value={customW} onChange={(e) => setCustomW(Number(e.target.value))} placeholder="宽" />
-              <input type="number" step={16} min={256} max={3840} className="input" value={customH} onChange={(e) => setCustomH(Number(e.target.value))} placeholder="高" />
+              <input type="number" step={16} min={256} max={CPA_MAX_SINGLE_EDGE} className="input" value={customW} onChange={(e) => setCustomW(Number(e.target.value))} placeholder="宽" />
+              <input type="number" step={16} min={256} max={CPA_MAX_SINGLE_EDGE} className="input" value={customH} onChange={(e) => setCustomH(Number(e.target.value))} placeholder="高" />
             </div>
           )}
         </div>

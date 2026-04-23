@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generateImage, getCPAConfig } from '@/lib/cpa'
-import { appendSizeHint, SIZE_PRESETS, type SizePreset, type Quality } from '@/lib/presets'
+import { appendSizeHint, SIZE_PRESETS, CPA_MAX_SINGLE_EDGE, type SizePreset, type Quality } from '@/lib/presets'
 
 export const runtime = 'nodejs'
 export const maxDuration = 300 // Vercel hobby max 300s (10s on free, 60s on Pro by default; set explicitly)
@@ -43,6 +43,12 @@ export async function POST(req: NextRequest) {
   const ratioMax = Math.max(width, height) / Math.min(width, height)
   if (ratioMax > 3.01) {
     return NextResponse.json({ error: 'aspect ratio must be <= 3:1' }, { status: 400 })
+  }
+  if (Math.max(width, height) > CPA_MAX_SINGLE_EDGE) {
+    return NextResponse.json(
+      { error: `max single edge is ${CPA_MAX_SINGLE_EDGE} (CPA upstream aborts larger requests)` },
+      { status: 400 },
+    )
   }
 
   const finalPrompt =

@@ -15,9 +15,19 @@ function expectedToken(pass: string): string {
 
 export function middleware(req: NextRequest) {
   const pass = process.env.APP_PASSWORD
-  if (!pass) return NextResponse.next()
-
   const { pathname, search } = req.nextUrl
+
+  // Fail-closed: if APP_PASSWORD is not configured, refuse every request except
+  // the health endpoint. Prevents accidentally exposing the generate API when
+  // the env var is missing (e.g. forgotten in a new deploy).
+  if (!pass) {
+    if (pathname === '/api/health') return NextResponse.next()
+    return new NextResponse(
+      JSON.stringify({ error: 'APP_PASSWORD is not configured on the server' }),
+      { status: 503, headers: { 'Content-Type': 'application/json' } },
+    )
+  }
+
   if (PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + '/'))) {
     return NextResponse.next()
   }
