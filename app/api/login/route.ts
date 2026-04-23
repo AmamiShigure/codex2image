@@ -1,13 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { buildSessionToken } from '@/lib/session'
 
 export const runtime = 'nodejs'
 
 const COOKIE_NAME = 'codex2image_auth'
 const MAX_AGE = 60 * 60 * 24 * 30 // 30 days
-
-function expectedToken(pass: string): string {
-  return Buffer.from(`codex2image:${pass}`, 'utf-8').toString('base64')
-}
 
 export async function POST(req: NextRequest) {
   const pass = process.env.APP_PASSWORD
@@ -23,7 +20,7 @@ export async function POST(req: NextRequest) {
 
   const isHttps = req.nextUrl.protocol === 'https:' || req.headers.get('x-forwarded-proto') === 'https'
   const res = NextResponse.json({ ok: true })
-  res.cookies.set(COOKIE_NAME, expectedToken(pass), {
+  res.cookies.set(COOKIE_NAME, await buildSessionToken(pass), {
     httpOnly: true,
     sameSite: 'strict',
     secure: isHttps,

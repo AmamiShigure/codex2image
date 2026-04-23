@@ -2,10 +2,23 @@
 import { Suspense, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 
+// Open-redirect protection for the ?next= query param.
+// Only accept same-origin relative paths. Anything that could escape the site
+// (absolute URLs, protocol-relative "//evil.com", backslash tricks) falls back
+// to the homepage.
+function isSafeNext(raw: string | null | undefined): string {
+  if (!raw || typeof raw !== 'string') return '/'
+  if (!raw.startsWith('/')) return '/'
+  // "//foo" is protocol-relative; "/\\foo" is treated as protocol-relative by
+  // some browsers. Reject both.
+  if (raw.startsWith('//') || raw.startsWith('/\\')) return '/'
+  return raw
+}
+
 function LoginInner() {
   const router = useRouter()
   const params = useSearchParams()
-  const next = params.get('next') || '/'
+  const next = isSafeNext(params.get('next'))
   const [pw, setPw] = useState('')
   const [err, setErr] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)

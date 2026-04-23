@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { buildSessionToken, constantTimeEqual } from '@/lib/session'
 
 // Cookie-based password gate. Enabled whenever APP_PASSWORD is set.
 // The user logs in via /login (password only) and gets a httpOnly cookie.
@@ -7,13 +8,7 @@ const COOKIE_NAME = 'codex2image_auth'
 // Paths that must stay open so the login flow works.
 const PUBLIC_PREFIXES = ['/login', '/api/login', '/api/health']
 
-function expectedToken(pass: string): string {
-  // Cookie value is a non-reversible-ish encoding of the password.
-  // httpOnly + Secure + SameSite=Strict keeps it out of JS and cross-site.
-  return btoa(unescape(encodeURIComponent(`codex2image:${pass}`)))
-}
-
-export function middleware(req: NextRequest) {
+export async function middleware(req: NextRequest) {
   const pass = process.env.APP_PASSWORD
   const { pathname, search } = req.nextUrl
 
@@ -33,8 +28,11 @@ export function middleware(req: NextRequest) {
   }
 
   const token = req.cookies.get(COOKIE_NAME)?.value
-  if (token && token === expectedToken(pass)) {
-    return NextResponse.next()
+  if (token) {
+    const expected = await buildSessionToken(pass)
+    if (constantTimeEqual(token, expected)) {
+      return NextResponse.next()
+    }
   }
 
   // GET requests → redirect to the login page, preserving the original destination.

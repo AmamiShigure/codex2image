@@ -3,7 +3,13 @@ import { generateImage, getCPAConfig } from '@/lib/cpa'
 import { appendSizeHint, SIZE_PRESETS, CPA_MAX_SINGLE_EDGE, type SizePreset, type Quality } from '@/lib/presets'
 
 export const runtime = 'nodejs'
-export const maxDuration = 300 // Vercel hobby max 300s (10s on free, 60s on Pro by default; set explicitly)
+// Per-request time budget (seconds). Deployment-target caveats:
+//   - Self-hosted (VPS, Docker, this project's default):  no platform limit, 300s is safe.
+//   - Vercel Hobby (free tier):                           hard cap 10s — this value is ignored and requests > 10s get killed. Pick smaller size/quality or upgrade.
+//   - Vercel Pro:                                         default 60s, max 300s (must set explicitly like this).
+//   - Vercel Enterprise:                                  max 900s.
+// gpt-image-2 at 1024² takes ~25-45s, so Hobby is effectively unusable for this app.
+export const maxDuration = 300
 
 type Body = {
   prompt: string
