@@ -1,11 +1,9 @@
 // Aspect-ratio & resolution presets for gpt-image-2 via CPA.
-// CPA 实测结论（low quality）：
-//   ✅ 单边 ≤ 3072 都能成功： 2048² / 2048×3072 / 2880² / 3072×2048 / 2560×1440
-//   ❌ 单边 > 3072 一路 502 “stream disconnected before completion”：
-//       3456×2304 / 2304×3456 / 3840×2160 / 2160×3840 均挂
-// 真实卡点：单边 ≤ 3072，而不是总像素。
-// OpenAI 约束：宽高 16 倍数，总像素 655,360 ~ 8,294,400，宽高比 ≤ 3:1。
-// 以下预设全部限制单边 ≤ 3072，保证 CPA 下稳定运行。
+// CPA 实测结论（2026-04-25 复测）：
+//   ✅ 单边 ≤ 3840 全部成功。官方上限就是 3840，我们之前 3072 的说法是错的。
+//      - 3840×2160 @ low ≈ 52s（测试通过）
+//   OpenAI 官方约束：宽高均为 16 倍数，总像素 655,360 ~ 8,294,400，宽高比 ≤ 3:1。
+//   3840×2160 / 2160×3840 正好卡在 8.29 MP 上限且为 16 倍数。
 
 export type SizePreset = {
   id: string
@@ -19,7 +17,7 @@ export type SizePreset = {
   note?: string
   // 可选的"生成后放大"后处理。设置后，API 会先按 (width, height) 生成，
   // 再用指定方法放大到 (deliver.width, deliver.height)。
-  // 用途：突破 CPA 单边 3072 的上限，给下游交付更大尺寸（如 A4@300DPI）。
+  // 用途：下游交付特定尺寸（如 A4@300DPI 的 3507 非 16 倍数）。
   deliver?: {
     width: number
     height: number
@@ -51,11 +49,13 @@ export const SIZE_PRESETS: SizePreset[] = [
   { id: 'la-32-3072',  tier: '2k', label: '3:2 · 3072×2048 (6.3 MP)',    ratio: '3:2',  width: 3072, height: 2048, orientation: 'landscape', note: '横版原画 · 实测 76s' },
   { id: 'la-169-2560', tier: '2k', label: '16:9 · 2560×1440 (3.7 MP)',   ratio: '16:9', width: 2560, height: 1440, orientation: 'landscape', note: '实测 125s' },
 
-  // ————— 极限级 (仅方图可到 8 MP，其他比例超 3072 单边都会 502) —————
-  { id: 'sq-2880',     tier: 'max', label: '1:1 · 2880² (8.3 MP 上限)',  ratio: '1:1',  width: 2880, height: 2880, orientation: 'square',   note: '方图最大 · 实测 88s' },
+  // ————— 极限级 (卡满官方 8.29 MP 上限) —————
+  { id: 'sq-2880',     tier: 'max', label: '1:1 · 2880² (8.3 MP)',         ratio: '1:1',  width: 2880, height: 2880, orientation: 'square',    note: '方图 8 MP · 实测 88s' },
+  { id: '4k-landscape',tier: 'max', label: '16:9 · 3840×2160 (4K 横屏 8.3 MP)', ratio: '16:9', width: 3840, height: 2160, orientation: 'landscape', note: '4K 横屏 · 实测 52s @ low' },
+  { id: '4k-portrait', tier: 'max', label: '9:16 · 2160×3840 (4K 竖屏 8.3 MP)', ratio: '9:16', width: 2160, height: 3840, orientation: 'portrait',  note: '4K 竖屏 · 官方列出的 popular size' },
 
   // ————— 交付级 (生成后自动放大，给下游特定尺寸需求) —————
-  // A4 扫描件 @ 300DPI = 2480×3507，3507 超 3072 上限，所以先生成 2160×3072（A4 比例、卡在上限内），
+  // A4 扫描件 @ 300DPI = 2480×3507，3507 非 16 倍数，所以先生成 2160×3072（A4 比例），
   // 后端用 sharp lanczos3 放大 1.15× 到 2480×3507。插画/立绘放大这个倍数肉眼几乎无差。
   { id: 'a4-scan-300dpi', tier: 'max',
     label: 'A4扫描件 · 2480×3507 (300DPI)',
@@ -83,8 +83,8 @@ export type Quality = (typeof QUALITY_OPTIONS)[number]
 export const DEFAULT_PRESET_ID = 'po-23-2048'
 export const DEFAULT_QUALITY: Quality = 'medium'
 
-// CPA 代理的稳定上限，用于自定义尺寸校验
-export const CPA_MAX_SINGLE_EDGE = 3072
+// CPA / OpenAI 官方单边上限（验证于 2026-04-25，3840×2160 测试通过）
+export const CPA_MAX_SINGLE_EDGE = 3840
 
 // 为了提高模型对尺寸的命中率，在 prompt 末尾追加显式尺寸提示。
 export function appendSizeHint(prompt: string, p: SizePreset): string {
