@@ -64,6 +64,16 @@ export const SIZE_PRESETS: SizePreset[] = [
     orientation: 'portrait',
     note: '公司A4标准 · 生成 2160×3072 后 lanczos 放大到 2480×3507',
     deliver: { width: 2480, height: 3507, method: 'lanczos' } },
+  // 同样是 A4@300DPI，但交付高度取 3504（3507 略减 3 像素），交付 2480×3504，两边都是 16 倍数。
+  // 2480/16=155, 3504/16=219。对需要 16 对齐的下游（视频编码、切图切块、分块导入等）更友好。
+  // 与 3507 相比尺寸差 ≈ 0.09%，打印/打样肉眼无差。
+  { id: 'a4-scan-300dpi-16', tier: 'max',
+    label: 'A4扫描件 · 2480×3504 (300DPI, 16倍数)',
+    ratio: '155:219',
+    width: 2160, height: 3072,
+    orientation: 'portrait',
+    note: '两边 16 倍数 · 生成 2160×3072 后 lanczos 放大到 2480×3504',
+    deliver: { width: 2480, height: 3504, method: 'lanczos' } },
 ]
 
 export const QUALITY_OPTIONS = ['auto', 'low', 'medium', 'high'] as const
