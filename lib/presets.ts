@@ -1,7 +1,7 @@
 // Aspect-ratio & resolution presets for gpt-image-2 via CPA.
 // CPA 实测结论（low quality）：
 //   ✅ 单边 ≤ 3072 都能成功： 2048² / 2048×3072 / 2880² / 3072×2048 / 2560×1440
-//   ❌ 单边 > 3072 一路 502 "stream disconnected before completion"：
+//   ❌ 单边 > 3072 一路 502 “stream disconnected before completion”：
 //       3456×2304 / 2304×3456 / 3840×2160 / 2160×3840 均挂
 // 真实卡点：单边 ≤ 3072，而不是总像素。
 // OpenAI 约束：宽高 16 倍数，总像素 655,360 ~ 8,294,400，宽高比 ≤ 3:1。
@@ -17,7 +17,17 @@ export type SizePreset = {
   official?: boolean // true = OpenAI 官方预设
   tier: 'preview' | 'standard' | '2k' | 'max'
   note?: string
+  // 可选的"生成后放大"后处理。设置后，API 会先按 (width, height) 生成，
+  // 再用指定方法放大到 (deliver.width, deliver.height)。
+  // 用途：突破 CPA 单边 3072 的上限，给下游交付更大尺寸（如 A4@300DPI）。
+  deliver?: {
+    width: number
+    height: number
+    method: UpscaleMethod
+  }
 }
+
+export type UpscaleMethod = 'lanczos' | 'realesrgan'
 
 export const SIZE_PRESETS: SizePreset[] = [
   // ————— 预览级 (~1 MP，快、省钱，官方 3 个预设) —————
@@ -43,6 +53,17 @@ export const SIZE_PRESETS: SizePreset[] = [
 
   // ————— 极限级 (仅方图可到 8 MP，其他比例超 3072 单边都会 502) —————
   { id: 'sq-2880',     tier: 'max', label: '1:1 · 2880² (8.3 MP 上限)',  ratio: '1:1',  width: 2880, height: 2880, orientation: 'square',   note: '方图最大 · 实测 88s' },
+
+  // ————— 交付级 (生成后自动放大，给下游特定尺寸需求) —————
+  // A4 扫描件 @ 300DPI = 2480×3507，3507 超 3072 上限，所以先生成 2160×3072（A4 比例、卡在上限内），
+  // 后端用 sharp lanczos3 放大 1.15× 到 2480×3507。插画/立绘放大这个倍数肉眼几乎无差。
+  { id: 'a4-scan-300dpi', tier: 'max',
+    label: 'A4扫描件 · 2480×3507 (300DPI)',
+    ratio: '210:297',
+    width: 2160, height: 3072,
+    orientation: 'portrait',
+    note: '公司A4标准 · 生成 2160×3072 后 lanczos 放大到 2480×3507',
+    deliver: { width: 2480, height: 3507, method: 'lanczos' } },
 ]
 
 export const QUALITY_OPTIONS = ['auto', 'low', 'medium', 'high'] as const

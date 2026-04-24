@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { generateImage, getCPAConfig } from '@/lib/cpa'
 import { editImage, type EditImageSource } from '@/lib/cpa-edit'
 import { appendSizeHint, SIZE_PRESETS, CPA_MAX_SINGLE_EDGE, type SizePreset, type Quality } from '@/lib/presets'
+import { upscaleBuffer } from '@/lib/upscale'
 
 export const runtime = 'nodejs'
 // Per-request time budget (seconds). Deployment-target caveats:
@@ -56,6 +57,35 @@ function composePrompt(rawPrompt: string, appendHintFlag: boolean, preset: SizeP
   } as SizePreset)
 }
 
+// 如果 preset 配置了 deliver (生成后放大)，就对原始图做放大；否则原样返回。
+// 返回结构把生成尺寸和交付尺寸都交代清楚，方便前端和后续排错。
+type UpscaledImage = {
+  b64: string
+  deliverWidth: number
+  deliverHeight: number
+  upscaledFrom: { width: number; height: number; method: string } | null
+}
+
+async function maybeUpscale(
+  b64: string,
+  preset: SizePreset | undefined,
+  generatedWidth: number,
+  generatedHeight: number,
+): Promise<UpscaledImage> {
+  if (!preset?.deliver) {
+    return { b64, deliverWidth: generatedWidth, deliverHeight: generatedHeight, upscaledFrom: null }
+  }
+  const inBuf = Buffer.from(b64, 'base64')
+  const { width: dw, height: dh, method } = preset.deliver
+  const outBuf = await upscaleBuffer(inBuf, dw, dh, method)
+  return {
+    b64: outBuf.toString('base64'),
+    deliverWidth: dw,
+    deliverHeight: dh,
+    upscaledFrom: { width: generatedWidth, height: generatedHeight, method },
+  }
+}
+
 export async function POST(req: NextRequest) {
   const contentType = req.headers.get('content-type') || ''
   if (contentType.startsWith('multipart/form-data')) {
@@ -95,12 +125,17 @@ async function handleGenerate(req: NextRequest): Promise<NextResponse> {
     if (!image?.b64_json) {
       return NextResponse.json({ error: 'no image in response' }, { status: 502 })
     }
+    const up = await maybeUpscale(image.b64_json, preset, width, height)
     return NextResponse.json({
-      image: image.b64_json,
+      image: up.b64,
       revised_prompt: image.revised_prompt ?? null,
-      size: resp.size ?? `${width}x${height}`,
-      width,
-      height,
+      size: `${up.deliverWidth}x${up.deliverHeight}`,
+      width: up.deliverWidth,
+      height: up.deliverHeight,
+      generate_size: `${width}x${height}`,
+      generate_width: width,
+      generate_height: height,
+      upscaled_from: up.upscaledFrom,
       quality: resp.quality ?? body.quality ?? 'auto',
       ms: Date.now() - t0,
       usage: resp.usage ?? null,
@@ -183,12 +218,17 @@ async function handleEdit(req: NextRequest): Promise<NextResponse> {
     if (!image?.b64_json) {
       return NextResponse.json({ error: 'no image in response' }, { status: 502 })
     }
+    const up = await maybeUpscale(image.b64_json, preset, width, height)
     return NextResponse.json({
-      image: image.b64_json,
+      image: up.b64,
       revised_prompt: image.revised_prompt ?? null,
-      size: resp.size ?? `${width}x${height}`,
-      width,
-      height,
+      size: `${up.deliverWidth}x${up.deliverHeight}`,
+      width: up.deliverWidth,
+      height: up.deliverHeight,
+      generate_size: `${width}x${height}`,
+      generate_width: width,
+      generate_height: height,
+      upscaled_from: up.upscaledFrom,
       quality: resp.quality ?? quality ?? 'auto',
       ms: Date.now() - t0,
       usage: resp.usage ?? null,
